@@ -1,0 +1,1603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Glyphs - LED Pixel Grid & Font Matrix Simulator</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-dark: #09090e;
+      --bg-card: rgba(18, 18, 28, 0.7);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --primary: #10b981; /* Default emerald green matrix color */
+      --primary-glow: rgba(16, 185, 129, 0.45);
+      --primary-dim: rgba(16, 185, 129, 0.08);
+      --led-off: #141420;
+      --led-off-border: rgba(255, 255, 255, 0.02);
+      
+      /* Color themes */
+      --color-green: #10b981;
+      --glow-green: rgba(16, 185, 129, 0.45);
+      --color-amber: #f59e0b;
+      --glow-amber: rgba(245, 158, 11, 0.45);
+      --color-cyan: #06b6d4;
+      --glow-cyan: rgba(6, 182, 212, 0.45);
+      --color-pink: #ec4899;
+      --glow-pink: rgba(236, 72, 153, 0.45);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(at 10% 20%, rgba(20, 20, 35, 0.7) 0px, transparent 50%),
+        radial-gradient(at 90% 80%, rgba(10, 30, 20, 0.4) 0px, transparent 50%);
+      color: var(--text-main);
+      font-family: 'Outfit', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      padding: 2rem 1.5rem;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    /* Header Design */
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+      position: relative;
+    }
+
+    header h1 {
+      font-size: 3rem;
+      font-weight: 800;
+      letter-spacing: -0.05em;
+      background: linear-gradient(135deg, #ffffff 0%, var(--primary) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.5rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: background 0.3s ease;
+    }
+
+    header p {
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    /* Main Grid Layout */
+    .dashboard {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+
+    @media (min-width: 1024px) {
+      .dashboard {
+        grid-template-columns: 380px 1fr;
+      }
+    }
+
+    /* Card Panels */
+    .panel {
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 1.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+
+    .panel-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: #fff;
+    }
+
+    /* Simulator Center Layout */
+    .simulator-container {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+
+    @media (min-width: 768px) {
+      .simulator-container {
+        grid-template-columns: auto 1fr;
+      }
+    }
+
+    /* LED Matrix Panel */
+    .matrix-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .led-matrix {
+      background: #050508;
+      border: 6px solid #1a1a24;
+      border-radius: 12px;
+      padding: 14px;
+      display: grid;
+      grid-template-columns: repeat(20, 14px);
+      grid-template-rows: repeat(24, 14px);
+      gap: 3px;
+      box-shadow: 
+        0 15px 35px rgba(0,0,0,0.5), 
+        0 0 0 1px rgba(255,255,255,0.05),
+        0 0 25px var(--primary-dim);
+      position: relative;
+      user-select: none;
+    }
+
+    .led {
+      width: 14px;
+      height: 14px;
+      background: var(--led-off);
+      border: 1px solid var(--led-off-border);
+      cursor: crosshair;
+    }
+
+    .led.circle {
+      border-radius: 50%;
+    }
+
+    .led.on {
+      background-color: var(--primary);
+      box-shadow: 
+        0 0 8px var(--primary), 
+        0 0 2px rgba(255,255,255,0.8) inset;
+    }
+
+    /* Overlay guidelines on matrix */
+    .grid-lines-overlay {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      right: 14px;
+      bottom: 14px;
+      pointer-events: none;
+      display: grid;
+      grid-template-columns: repeat(20, 14px);
+      grid-template-rows: repeat(24, 14px);
+      gap: 3px;
+    }
+
+    .grid-cell-helper {
+      box-shadow: none;
+      transition: border 0.2s ease;
+    }
+
+    /* Styling guidelines helper */
+    .show-guides .grid-cell-helper.border-char {
+      border: 1px dashed rgba(255, 255, 255, 0.2);
+    }
+    
+    .show-guides .grid-cell-helper.border-pad-r {
+      border-right: 1px solid rgba(255, 0, 0, 0.25);
+      background-color: rgba(255, 0, 0, 0.03);
+    }
+
+    .show-guides .grid-cell-helper.border-pad-b {
+      border-bottom: 1px solid rgba(255, 0, 0, 0.25);
+      background-color: rgba(255, 0, 0, 0.03);
+    }
+
+    .show-guides .grid-cell-helper.border-margin {
+      background-color: rgba(255, 255, 0, 0.03);
+      border: 1px dotted rgba(255, 255, 0, 0.15);
+    }
+
+    /* Size display labels */
+    .matrix-dims {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      padding: 0 4px;
+    }
+
+    /* Control Styles */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    label {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .input-text {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      color: #fff;
+      padding: 0.75rem 1rem;
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.1rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .input-text:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px var(--primary-dim);
+    }
+
+    /* Custom Radio Tabs */
+    .radio-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 4px;
+    }
+
+    #font-selector {
+      grid-template-columns: repeat(4, 1fr);
+    }
+
+    .radio-tab {
+      position: relative;
+    }
+
+    .radio-tab input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .radio-tab label {
+      display: block;
+      text-align: center;
+      padding: 0.6rem 0.2rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-radius: 6px;
+      transition: all 0.2s;
+      text-transform: none;
+    }
+
+    .radio-tab input[type="radio"]:checked + label {
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 2px 8px var(--primary-glow);
+    }
+
+    /* Color Swatch Selector */
+    .color-swatches {
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    .color-swatch {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: transform 0.2s, border-color 0.2s;
+      position: relative;
+    }
+
+    .color-swatch:hover {
+      transform: scale(1.1);
+    }
+
+    .color-swatch.active {
+      border-color: #fff;
+      transform: scale(1.1);
+    }
+
+    .swatch-green { background-color: var(--color-green); }
+    .swatch-amber { background-color: var(--color-amber); }
+    .swatch-cyan { background-color: var(--color-cyan); }
+    .swatch-pink { background-color: var(--color-pink); }
+
+    /* Switch Option */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(255,255,255,0.1);
+      transition: .3s;
+      border-radius: 24px;
+      border: 1px solid var(--border-color);
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: var(--primary);
+    }
+
+    input:focus + .slider {
+      box-shadow: 0 0 1px var(--primary);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(20px);
+    }
+
+    /* Slider Bar Styling */
+    .range-slider {
+      width: 100%;
+      -webkit-appearance: none;
+      background: rgba(255, 255, 255, 0.1);
+      height: 6px;
+      border-radius: 3px;
+      outline: none;
+    }
+
+    .range-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--primary);
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--primary-glow);
+      transition: transform 0.1s;
+    }
+
+    .range-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    /* Info Badge / Details list */
+    .info-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 8px;
+      padding: 1rem;
+      border: 1px solid var(--border-color);
+      font-size: 0.85rem;
+    }
+
+    .info-item {
+      display: flex;
+      justify-content: space-between;
+      color: var(--text-muted);
+    }
+
+    .info-item span:last-child {
+      font-family: 'JetBrains Mono', monospace;
+      color: #fff;
+      font-weight: 600;
+    }
+
+    /* Glyph Editor Grid Section */
+    .editor-section {
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 1.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+      grid-column: 1 / -1;
+    }
+
+    .editor-layout {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+
+    @media (min-width: 768px) {
+      .editor-layout {
+        grid-template-columns: 240px auto 1fr;
+      }
+    }
+
+    /* Character List Browser */
+    .char-browser {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      max-height: 350px;
+      overflow-y: auto;
+      border: 1px solid var(--border-color);
+      background: rgba(0, 0, 0, 0.15);
+      border-radius: 8px;
+      padding: 0.5rem;
+    }
+
+    .char-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+    }
+
+    .char-btn {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 0.5rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 1.1rem;
+      font-weight: 600;
+      transition: all 0.2s;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .char-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: var(--primary);
+    }
+
+    .char-btn.active {
+      background: var(--primary-dim);
+      border-color: var(--primary);
+      color: var(--primary);
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.15);
+    }
+
+    /* Pixel Art Workspace */
+    .editor-canvas-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .editor-grid {
+      background: #07070a;
+      border: 4px solid #1a1a24;
+      border-radius: 8px;
+      padding: 10px;
+      display: grid;
+      gap: 2px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    }
+
+    .editor-pixel {
+      width: 28px;
+      height: 28px;
+      background: #12121c;
+      border: 1px solid rgba(255, 255, 255, 0.03);
+      cursor: pointer;
+      transition: background-color 0.1s, box-shadow 0.1s;
+    }
+
+    .editor-pixel:hover {
+      background: rgba(255, 255, 255, 0.07);
+    }
+
+    .editor-pixel.on {
+      background-color: var(--primary);
+      box-shadow: 0 0 10px var(--primary-glow);
+    }
+
+    .editor-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      color: #fff;
+      padding: 0.75rem 1.25rem;
+      border-radius: 8px;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: var(--primary);
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      border-color: transparent;
+      box-shadow: 0 4px 12px var(--primary-glow);
+    }
+
+    .btn-primary:hover {
+      background: #059669;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px var(--primary-glow);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    /* Textarea / Output */
+    .json-output {
+      width: 100%;
+      height: 240px;
+      background: #050508;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      color: #34d399;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      padding: 1rem;
+      resize: none;
+      outline: none;
+    }
+
+    /* Scrollbar style */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(0,0,0,0.1);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.15);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255,255,255,0.25);
+    }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border-color);
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    footer a {
+      color: var(--primary);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1><span style="color: var(--primary)">⚡</span> Glyphs Matrix Explorer</h1>
+    <p>Visualize, animate, and edit low-resolution typography matrices on a simulated 20×24 LED pixel grid based on standard typography sizes.</p>
+  </header>
+
+  <div class="dashboard">
+    <!-- LEFT PANEL: Controls -->
+    <div class="panel">
+      <div class="panel-title">
+        <span>Settings Panel</span>
+        <span style="font-size: 0.8rem; opacity: 0.7;">Glyph Controller</span>
+      </div>
+
+      <!-- Mode selection -->
+      <div class="form-group">
+        <label>Display Mode</label>
+        <div class="radio-tabs" id="display-mode-selector">
+          <div class="radio-tab">
+            <input type="radio" id="mode-ticker" name="display-mode" value="ticker" checked>
+            <label for="mode-ticker">Ticker (Scroll)</label>
+          </div>
+          <div class="radio-tab">
+            <input type="radio" id="mode-static" name="display-mode" value="static">
+            <label for="mode-static">Static Fits</label>
+          </div>
+          <div class="radio-tab">
+            <input type="radio" id="mode-empty" name="display-mode" value="empty">
+            <label for="mode-empty">Clear Grid</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Text input -->
+      <div class="form-group">
+        <label for="matrix-text-input">Display Message</label>
+        <input type="text" id="matrix-text-input" class="input-text" value="RUN MAX" placeholder="Type letters (A-Z)">
+      </div>
+
+      <!-- Font selection -->
+      <div class="form-group">
+        <label>Font Matrix Style</label>
+        <div class="radio-tabs" id="font-selector">
+          <div class="radio-tab">
+            <input type="radio" id="font-3x5" name="font-style" value="3x5">
+            <label for="font-3x5">Compact 3x5</label>
+          </div>
+          <div class="radio-tab">
+            <input type="radio" id="font-5x7" name="font-style" value="5x7" checked>
+            <label for="font-5x7">Standard 5x7</label>
+          </div>
+          <div class="radio-tab">
+            <input type="radio" id="font-8x8" name="font-style" value="8x8">
+            <label for="font-8x8">Bold 8x8</label>
+          </div>
+          <div class="radio-tab">
+            <input type="radio" id="font-playful" name="font-style" value="playful">
+            <label for="font-playful">Playful 5x7</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Grid Visual Guides Switch -->
+      <div class="form-group">
+        <label class="toggle-row">
+          <span>Show Layout Spacing Guides</span>
+          <span class="switch">
+            <input type="checkbox" id="toggle-guides">
+            <span class="slider"></span>
+          </span>
+        </label>
+      </div>
+
+      <!-- LED Matrix Theme -->
+      <div class="form-group">
+        <label>LED Color Theme</label>
+        <div class="color-swatches">
+          <div class="color-swatch swatch-green active" data-color="green" title="Emerald Matrix Green"></div>
+          <div class="color-swatch swatch-amber" data-color="amber" title="Amber Gold"></div>
+          <div class="color-swatch swatch-cyan" data-color="cyan" title="Neon Cyan"></div>
+          <div class="color-swatch swatch-pink" data-color="pink" title="Cyberpunk Pink"></div>
+        </div>
+      </div>
+
+      <!-- LED Dot Shape -->
+      <div class="form-group">
+        <label class="toggle-row">
+          <span>Circular LEDs</span>
+          <span class="switch">
+            <input type="checkbox" id="toggle-shape" checked>
+            <span class="slider"></span>
+          </span>
+        </label>
+      </div>
+
+      <!-- Scrolling speed -->
+      <div class="form-group" id="speed-control-group">
+        <label for="speed-slider" id="speed-label">Scrolling Speed: 50ms</label>
+        <input type="range" id="speed-slider" class="range-slider" min="10" max="250" step="5" value="50">
+      </div>
+
+      <!-- Matrix Stats Box -->
+      <div class="info-list">
+        <div class="info-item">
+          <span>Grid Size:</span>
+          <span>20 × 24 pixels</span>
+        </div>
+        <div class="info-item">
+          <span>Total LED Nodes:</span>
+          <span>480 LEDs</span>
+        </div>
+        <div class="info-item">
+          <span>Current Font Tile:</span>
+          <span id="stat-tile-size">6 × 8 px</span>
+        </div>
+        <div class="info-item">
+          <span>Max Letters static:</span>
+          <span id="stat-max-chars">9 characters</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL: Matrix & Visualizer -->
+    <div class="panel">
+      <div class="panel-title">
+        <span>LED Panel Simulator</span>
+        <span style="font-size: 0.8rem; color: var(--primary); font-family: 'JetBrains Mono', monospace;" id="matrix-status">STATUS: IDLE</span>
+      </div>
+
+      <div class="simulator-container">
+        <!-- Physical matrix grid -->
+        <div class="matrix-wrapper">
+          <div class="led-matrix" id="led-matrix-element">
+            <!-- JavaScript dynamically inserts 480 cells here -->
+          </div>
+          <!-- Guideline cells overlay layer -->
+          <div class="grid-lines-overlay" id="grid-lines-overlay">
+            <!-- JavaScript dynamically inserts overlay helper elements -->
+          </div>
+
+          <div class="matrix-dims">
+            <span>◄── 20 Pixels (Width) ──►</span>
+            <span>24 Pixels (Height)</span>
+          </div>
+        </div>
+
+        <!-- Documentation details explaining the layouts -->
+        <div style="display: flex; flex-direction: column; gap: 1rem; justify-content: center;">
+          <h3 style="font-size: 1.15rem; color: #fff; font-weight: 600;">How It Works</h3>
+          <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5;">
+            To render crisp, legible typography on limited LED arrays, each character resides within a 
+            <strong>bounding box</strong>, accompanied by <strong>1-pixel spacer padding</strong>. This prevents bleeding between consecutive letters.
+          </p>
+          <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; font-size: 0.9rem; line-height: 1.4;">
+            <p><strong style="color: #fff;">Spacing Guides Color Key:</strong></p>
+            <ul style="list-style-type: none; margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.4rem;">
+              <li style="display: flex; align-items: center; gap: 0.5rem;">
+                <span style="display: inline-block; width: 12px; height: 12px; border: 1px dashed rgba(255,255,255,0.5); border-radius: 2px;"></span>
+                <span>Active Character Box</span>
+              </li>
+              <li style="display: flex; align-items: center; gap: 0.5rem;">
+                <span style="display: inline-block; width: 12px; height: 12px; background: rgba(255,0,0,0.15); border: 1px solid rgba(255,0,0,0.4); border-radius: 2px;"></span>
+                <span>Padding Pixels (1px Right/Bottom)</span>
+              </li>
+              <li style="display: flex; align-items: center; gap: 0.5rem;">
+                <span style="display: inline-block; width: 12px; height: 12px; background: rgba(255,255,0,0.15); border: 1px solid rgba(255,255,0,0.4); border-radius: 2px;"></span>
+                <span>Remaining margin pixels (unused layout pixels)</span>
+              </li>
+            </ul>
+          </div>
+          <p style="color: var(--text-muted); font-size: 0.9rem;">
+            <em>Tip: Turn on <strong>"Show Layout Spacing Guides"</strong> to see how standard matrices slice the grid!</em>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- GLYPH EDITOR SECTION -->
+    <div class="editor-section">
+      <div class="panel-title" style="border-bottom: 1px solid var(--border-color); margin-bottom: 0.5rem;">
+        <span>Interactive Glyph Editor</span>
+        <span style="font-size: 0.8rem; opacity: 0.7;">Modify and Export Font Matrices</span>
+      </div>
+      
+      <div class="editor-layout">
+        <!-- Choose a letter to edit -->
+        <div>
+          <label style="margin-bottom: 0.5rem; display: block;">Select Glyph</label>
+          <div class="char-browser">
+            <div class="char-grid" id="char-grid-browser">
+              <!-- Alphabet buttons populated by JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Drawing Canvas -->
+        <div class="editor-canvas-container">
+          <label style="align-self: flex-start;">Canvas Workspace</label>
+          <div class="editor-grid" id="editor-grid-canvas">
+            <!-- Drawn by JS depending on font size -->
+          </div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--text-muted)" id="editor-grid-dimensions">
+            Size: 5 x 7
+          </div>
+        </div>
+
+        <!-- JSON Output & Actions -->
+        <div class="editor-actions">
+          <label>Export Font JSON Data</label>
+          <p style="color: var(--text-muted); font-size: 0.85rem;">Clicking pixels updates the JSON array below in real-time. You can copy the code block or import it directly.</p>
+          <textarea class="json-output" id="json-output-area" readonly></textarea>
+          
+          <div style="display: flex; gap: 0.75rem; margin-top: auto;">
+            <button class="btn btn-primary" id="btn-copy-json">
+              Copy Active Glyph Matrix
+            </button>
+            <button class="btn" id="btn-copy-full">
+              Copy Full Fonts JSON
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <p>Glyphs Typography Tool — Made with Vanilla HTML, JS, and CSS. Open the source code or edit <a href="file:///c:/Users/reveleigh/OneDrive%20-%20Great%20Western%20Academy/Code/Glyphs/fonts.json">fonts.json</a> for customized character definitions.</p>
+  </footer>
+</div>
+
+<!-- Embedded Fonts Fallback in case of local file:/// CORS restrictions -->
+<script>
+const EMBEDDED_FONTS = {
+  "font3x5": {
+    "A": [[0,1,0],[1,0,1],[1,1,1],[1,0,1],[1,0,1]],
+    "B": [[1,1,0],[1,0,1],[1,1,0],[1,0,1],[1,1,0]],
+    "C": [[0,1,1],[1,0,0],[1,0,0],[1,0,0],[0,1,1]],
+    "D": [[1,1,0],[1,0,1],[1,0,1],[1,0,1],[1,1,0]],
+    "E": [[1,1,1],[1,0,0],[1,1,0],[1,0,0],[1,1,1]],
+    "F": [[1,1,1],[1,0,0],[1,1,0],[1,0,0],[1,0,0]],
+    "G": [[0,1,1],[1,0,0],[1,0,1],[1,0,1],[0,1,1]],
+    "H": [[1,0,1],[1,0,1],[1,1,1],[1,0,1],[1,0,1]],
+    "I": [[1,1,1],[0,1,0],[0,1,0],[0,1,0],[1,1,1]],
+    "J": [[0,0,1],[0,0,1],[0,0,1],[1,0,1],[0,1,0]],
+    "K": [[1,0,1],[1,1,0],[1,0,0],[1,1,0],[1,0,1]],
+    "L": [[1,0,0],[1,0,0],[1,0,0],[1,0,0],[1,1,1]],
+    "M": [[1,0,1],[1,1,1],[1,0,1],[1,0,1],[1,0,1]],
+    "N": [[1,1,1],[1,0,1],[1,0,1],[1,0,1],[1,0,1]],
+    "O": [[0,1,0],[1,0,1],[1,0,1],[1,0,1],[0,1,0]],
+    "P": [[1,1,0],[1,0,1],[1,1,0],[1,0,0],[1,0,0]],
+    "Q": [[0,1,0],[1,0,1],[1,0,1],[1,1,1],[0,0,1]],
+    "R": [[1,1,0],[1,0,1],[1,1,0],[1,0,1],[1,0,1]],
+    "S": [[0,1,1],[1,0,0],[0,1,0],[0,0,1],[1,1,0]],
+    "T": [[1,1,1],[0,1,0],[0,1,0],[0,1,0],[0,1,0]],
+    "U": [[1,0,1],[1,0,1],[1,0,1],[1,0,1],[0,1,0]],
+    "V": [[1,0,1],[1,0,1],[1,0,1],[0,1,0],[0,1,0]],
+    "W": [[1,0,1],[1,0,1],[1,0,1],[1,1,1],[1,0,1]],
+    "X": [[1,0,1],[1,0,1],[0,1,0],[1,0,1],[1,0,1]],
+    "Y": [[1,0,1],[1,0,1],[0,1,0],[0,1,0],[0,1,0]],
+    "Z": [[1,1,1],[0,0,1],[0,1,0],[1,0,0],[1,1,1]],
+    "0": [[1,1,1],[1,0,1],[1,0,1],[1,0,1],[1,1,1]],
+    "1": [[0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0]],
+    "2": [[1,1,1],[0,0,1],[1,1,1],[1,0,0],[1,1,1]],
+    "3": [[1,1,1],[0,0,1],[1,1,1],[0,0,1],[1,1,1]],
+    "4": [[1,0,1],[1,0,1],[1,1,1],[0,0,1],[0,0,1]],
+    "5": [[1,1,1],[1,0,0],[1,1,1],[0,0,1],[1,1,1]],
+    "6": [[1,1,1],[1,0,0],[1,1,1],[1,0,1],[1,1,1]],
+    "7": [[1,1,1],[0,0,1],[0,1,0],[0,1,0],[0,1,0]],
+    "8": [[1,1,1],[1,0,1],[1,1,1],[1,0,1],[1,1,1]],
+    "9": [[1,1,1],[1,0,1],[1,1,1],[0,0,1],[1,1,1]],
+    " ": [[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]]
+  },
+  "font5x7": {
+    "A": [[0,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[1,1,1,1,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1]],
+    "B": [[1,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[1,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[1,1,1,1,0]],
+    "C": [[0,1,1,1,1],[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0],[0,1,1,1,1]],
+    "D": [[1,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,1,1,1,0]],
+    "E": [[1,1,1,1,1],[1,0,0,0,0],[1,0,0,0,0],[1,1,1,1,0],[1,0,0,0,0],[1,0,0,0,0],[1,1,1,1,1]],
+    "F": [[1,1,1,1,1],[1,0,0,0,0],[1,0,0,0,0],[1,1,1,1,0],[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0]],
+    "G": [[0,1,1,1,1],[1,0,0,0,0],[1,0,0,0,0],[1,0,1,1,1],[1,0,0,0,1],[1,0,0,0,1],[0,1,1,1,1]],
+    "H": [[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,1,1,1,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1]],
+    "I": [[0,1,1,1,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,1,1,1,0]],
+    "J": [[0,0,0,1,1],[0,0,0,0,1],[0,0,0,0,1],[0,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[0,1,1,1,0]],
+    "K": [[1,0,0,0,1],[1,0,0,1,0],[1,0,1,0,0],[1,1,0,0,0],[1,0,1,0,0],[1,0,0,1,0],[1,0,0,0,1]],
+    "L": [[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0],[1,1,1,1,1]],
+    "M": [[1,0,0,0,1],[1,1,0,1,1],[1,0,1,0,1],[1,0,1,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1]],
+    "N": [[1,0,0,0,1],[1,1,0,0,1],[1,0,1,0,1],[1,0,0,1,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1]],
+    "O": [[0,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[0,1,1,1,0]],
+    "P": [[1,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[1,1,1,1,0],[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0]],
+    "Q": [[0,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,1,0,1],[1,0,0,1,0],[0,1,1,0,1]],
+    "R": [[1,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[1,1,1,1,0],[1,0,1,0,0],[1,0,0,1,0],[1,0,0,0,1]],
+    "S": [[0,1,1,1,1],[1,0,0,0,0],[1,0,0,0,0],[0,1,1,1,0],[0,0,0,0,1],[0,0,0,0,1],[1,1,1,1,0]],
+    "T": [[1,1,1,1,1],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0]],
+    "U": [[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[0,1,1,1,0]],
+    "V": [[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[0,1,0,1,0],[0,1,0,1,0],[0,0,1,0,0]],
+    "W": [[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,1,0,1],[1,0,1,0,1],[1,1,0,1,1],[1,0,0,0,1]],
+    "X": [[1,0,0,0,1],[1,0,0,0,1],[0,1,0,1,0],[0,0,1,0,0],[0,1,0,1,0],[1,0,0,0,1],[1,0,0,0,1]],
+    "Y": [[1,0,0,0,1],[1,0,0,0,1],[0,1,0,1,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0]],
+    "Z": [[1,1,1,1,1],[0,0,0,0,1],[0,0,0,1,0],[0,0,1,0,0],[0,1,0,0,0],[1,0,0,0,0],[1,1,1,1,1]],
+    "0": [[0,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[0,1,1,1,0]],
+    "1": [[0,0,1,0,0],[0,1,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,1,1,1,0]],
+    "2": [[0,1,1,1,0],[1,0,0,0,1],[0,0,0,0,1],[0,0,1,1,0],[0,1,0,0,0],[1,0,0,0,0],[1,1,1,1,1]],
+    "3": [[1,1,1,1,0],[0,0,0,0,1],[0,0,0,0,1],[0,1,1,1,0],[0,0,0,0,1],[0,0,0,0,1],[1,1,1,1,0]],
+    "4": [[0,0,1,0,0],[0,1,1,0,0],[1,0,1,0,0],[1,1,1,1,1],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0]],
+    "5": [[1,1,1,1,1],[1,0,0,0,0],[1,1,1,1,0],[0,0,0,0,1],[0,0,0,0,1],[1,0,0,0,1],[0,1,1,1,0]],
+    "6": [[0,1,1,1,0],[1,0,0,0,0],[1,0,0,0,0],[1,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[0,1,1,1,0]],
+    "7": [[1,1,1,1,1],[0,0,0,0,1],[0,0,0,1,0],[0,0,1,0,0],[0,1,0,0,0],[0,1,0,0,0],[0,1,0,0,0]],
+    "8": [[0,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[0,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[0,1,1,1,0]],
+    "9": [[0,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[0,1,1,1,1],[0,0,0,0,1],[0,0,0,0,1],[0,1,1,1,0]],
+    " ": [[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]]
+  },
+  "font8x8": {
+    "A": [[0,0,1,1,1,1,0,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,1,1,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,0,0,0,0,0,0,0]],
+    "B": [[0,1,1,1,1,1,0,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,1,1,1,0,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,1,1,1,0,0],[0,0,0,0,0,0,0,0]],
+    "C": [[0,0,1,1,1,1,0,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,0,0,0],[0,1,1,0,0,0,0,0],[0,1,1,0,0,0,0,0],[0,1,1,0,0,1,1,0],[0,0,1,1,1,1,0,0],[0,0,0,0,0,0,0,0]],
+    "D": [[0,1,1,1,1,0,0,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,1,1,0,0,0],[0,0,0,0,0,0,0,0]],
+    "E": [[0,1,1,1,1,1,1,0],[0,1,1,0,0,0,0,0],[0,1,1,0,0,0,0,0],[0,1,1,1,1,1,0,0],[0,1,1,0,0,0,0,0],[0,1,1,0,0,0,0,0],[0,1,1,1,1,1,1,0],[0,0,0,0,0,0,0,0]],
+    "F": [[0,1,1,1,1,1,1,0],[0,1,1,0,0,0,0,0],[0,1,1,0,0,0,0,0],[0,1,1,1,1,1,0,0],[0,1,1,0,0,0,0,0],[0,1,1,0,0,0,0,0],[0,1,1,0,0,0,0,0],[0,0,0,0,0,0,0,0]],
+    "G": [[0,0,1,1,1,1,0,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,0,0,0],[0,1,1,0,1,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,0,1,1,1,1,0,0],[0,0,0,0,0,0,0,0]],
+    "H": [[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,1,1,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,0,0,0,0,0,0,0]],
+    "I": [[0,1,1,1,1,1,0,0],[0,0,0,1,1,0,0,0],[0,0,0,1,1,0,0,0],[0,0,0,1,1,0,0,0],[0,0,0,1,1,0,0,0],[0,0,0,1,1,0,0,0],[0,1,1,1,1,1,0,0],[0,0,0,0,0,0,0,0]],
+    "J": [[0,0,0,0,1,1,1,0],[0,0,0,0,0,1,1,0],[0,0,0,0,0,1,1,0],[0,0,0,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,0,1,1,1,1,0,0],[0,0,0,0,0,0,0,0]],
+    "K": [[0,1,1,0,0,1,1,0],[0,1,1,0,1,1,0,0],[0,1,1,1,1,0,0,0],[0,1,1,1,0,0,0,0],[0,1,1,1,1,0,0,0],[0,1,1,0,1,1,0,0],[0,1,1,0,0,1,1,0],[0,0,0,0,0,0,0,0]],
+    "L": [[0,1,1,0,0,0,0,0],[0,1,1,0,0,0,0,0],[0,1,1,0,0,0,0,0],[0,1,1,0,0,0,0,0],[0,1,1,0,0,0,0,0],[0,1,1,0,0,0,0,0],[0,1,1,1,1,1,1,0],[0,0,0,0,0,0,0,0]],
+    "M": [[0,1,1,0,0,0,1,1],[0,1,1,1,0,1,1,1],[0,1,1,0,1,0,1,1],[0,1,1,0,1,0,1,1],[0,1,1,0,0,0,1,1],[0,1,1,0,0,0,1,1],[0,1,1,0,0,0,1,1],[0,0,0,0,0,0,0,0]],
+    "N": [[0,1,1,0,0,1,1,0],[0,1,1,1,0,1,1,0],[0,1,1,0,1,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,0,0,0,0,0,0,0]],
+    "O": [[0,0,1,1,1,1,0,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,0,1,1,1,1,0,0],[0,0,0,0,0,0,0,0]],
+    "P": [[0,1,1,1,1,1,0,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,1,1,1,0,0],[0,1,1,0,0,0,0,0],[0,1,1,0,0,0,0,0],[0,1,1,0,0,0,0,0],[0,0,0,0,0,0,0,0]],
+    "Q": [[0,0,1,1,1,1,0,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,0,1,1,1,0],[0,1,1,0,0,1,1,0],[0,0,1,1,1,1,1,0],[0,0,0,0,0,0,1,1]],
+    "R": [[0,1,1,1,1,1,0,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,1,1,1,0,0],[0,1,1,0,1,1,0,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,0,0,0,0,0,0,0]],
+    "S": [[0,0,1,1,1,1,1,0],[0,1,1,0,0,0,0,0],[0,1,1,0,0,0,0,0],[0,0,1,1,1,1,0,0],[0,0,0,0,0,1,1,0],[0,0,0,0,0,1,1,0],[0,1,1,1,1,1,0,0],[0,0,0,0,0,0,0,0]],
+    "T": [[0,1,1,1,1,1,1,0],[0,0,0,1,1,0,0,0],[0,0,0,1,1,0,0,0],[0,0,0,1,1,0,0,0],[0,0,0,1,1,0,0,0],[0,0,0,1,1,0,0,0],[0,0,0,1,1,0,0,0],[0,0,0,0,0,0,0,0]],
+    "U": [[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,0,1,1,1,1,0,0],[0,0,0,0,0,0,0,0]],
+    "V": [[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,0,1,1,1,1,0,0],[0,0,1,1,1,1,0,0],[0,0,0,1,1,0,0,0],[0,0,0,0,0,0,0,0]],
+    "W": [[0,1,1,0,0,0,1,1],[0,1,1,0,0,0,1,1],[0,1,1,0,1,0,1,1],[0,1,1,0,1,0,1,1],[0,1,1,1,0,1,1,1],[0,1,1,1,0,1,1,1],[0,0,1,0,0,0,1,0],[0,0,0,0,0,0,0,0]],
+    "X": [[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,0,1,1,1,1,0,0],[0,0,0,1,1,0,0,0],[0,0,1,1,1,1,0,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,0,0,0,0,0,0,0]],
+    "Y": [[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,0,1,1,1,1,0,0],[0,0,0,1,1,0,0,0],[0,0,0,1,1,0,0,0],[0,0,0,1,1,0,0,0],[0,0,0,1,1,0,0,0],[0,0,0,0,0,0,0,0]],
+    "Z": [[0,1,1,1,1,1,1,0],[0,0,0,0,0,1,1,0],[0,0,0,0,1,1,0,0],[0,0,0,1,1,0,0,0],[0,0,1,1,0,0,0,0],[0,1,1,0,0,0,0,0],[0,1,1,1,1,1,1,0],[0,0,0,0,0,0,0,0]],
+    "0": [[0,0,1,1,1,1,0,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,0,1,1,1,1,0,0],[0,0,0,0,0,0,0,0]],
+    "1": [[0,0,0,1,1,0,0,0],[0,0,1,1,1,0,0,0],[0,0,0,1,1,0,0,0],[0,0,0,1,1,0,0,0],[0,0,0,1,1,0,0,0],[0,0,0,1,1,0,0,0],[0,0,1,1,1,1,0,0],[0,0,0,0,0,0,0,0]],
+    "2": [[0,0,1,1,1,1,0,0],[0,1,1,0,0,1,1,0],[0,0,0,0,0,1,1,0],[0,0,0,0,1,1,0,0],[0,0,1,1,1,0,0,0],[0,1,1,0,0,0,0,0],[0,1,1,1,1,1,1,0],[0,0,0,0,0,0,0,0]],
+    "3": [[0,1,1,1,1,1,0,0],[0,0,0,0,0,1,1,0],[0,0,0,0,0,1,1,0],[0,0,1,1,1,1,0,0],[0,0,0,0,0,1,1,0],[0,0,0,0,0,1,1,0],[0,1,1,1,1,1,0,0],[0,0,0,0,0,0,0,0]],
+    "4": [[0,0,0,1,1,0,0,0],[0,0,1,1,1,0,0,0],[0,1,1,0,1,1,0,0],[0,1,1,1,1,1,1,0],[0,0,0,1,1,0,0,0],[0,0,0,1,1,0,0,0],[0,0,0,1,1,0,0,0],[0,0,0,0,0,0,0,0]],
+    "5": [[0,1,1,1,1,1,1,0],[0,1,1,0,0,0,0,0],[0,1,1,1,1,1,0,0],[0,0,0,0,0,1,1,0],[0,0,0,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,0,1,1,1,1,0,0],[0,0,0,0,0,0,0,0]],
+    "6": [[0,0,1,1,1,1,0,0],[0,1,1,0,0,0,0,0],[0,1,1,1,1,1,0,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,0,1,1,1,1,0,0],[0,0,0,0,0,0,0,0]],
+    "7": [[0,1,1,1,1,1,1,0],[0,0,0,0,0,1,1,0],[0,0,0,0,1,1,0,0],[0,0,0,1,1,0,0,0],[0,0,1,1,0,0,0,0],[0,0,1,1,0,0,0,0],[0,0,1,1,0,0,0,0],[0,0,0,0,0,0,0,0]],
+    "8": [[0,0,1,1,1,1,0,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,0,1,1,1,1,0,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,0,1,1,1,1,0,0],[0,0,0,0,0,0,0,0]],
+    "9": [[0,0,1,1,1,1,0,0],[0,1,1,0,0,1,1,0],[0,1,1,0,0,1,1,0],[0,0,1,1,1,1,1,0],[0,0,0,0,0,1,1,0],[0,0,0,0,0,1,1,0],[0,0,1,1,1,1,0,0],[0,0,0,0,0,0,0,0]],
+    " ": [[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0]]
+  },
+  "fontplayful": {
+    "A": [[0,0,0,0,0],[0,1,1,1,0],[0,0,0,0,1],[0,1,1,1,1],[1,0,0,0,1],[1,0,0,0,1],[0,1,1,1,1]],
+    "B": [[1,0,0,0,0],[1,0,0,0,0],[1,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,1,1,1,0]],
+    "C": [[0,0,0,0,0],[0,0,0,0,0],[0,1,1,1,0],[1,0,0,0,1],[1,0,0,0,0],[1,0,0,0,1],[0,1,1,1,0]],
+    "D": [[0,0,0,0,1],[0,0,0,0,1],[0,1,1,1,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[0,1,1,1,1]],
+    "E": [[0,0,0,0,0],[0,1,1,1,0],[1,0,0,0,1],[1,1,1,1,1],[1,0,0,0,0],[1,0,0,0,1],[0,1,1,1,0]],
+    "F": [[0,0,1,1,0],[0,1,0,0,1],[0,1,0,0,0],[1,1,1,1,0],[0,1,0,0,0],[0,1,0,0,0],[0,1,0,0,0]],
+    "G": [[0,0,0,0,0],[0,1,1,1,0],[1,0,0,0,1],[0,1,1,1,1],[0,0,0,0,1],[1,0,0,0,1],[0,1,1,1,0]],
+    "H": [[1,0,0,0,0],[1,0,0,0,0],[1,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1]],
+    "I": [[0,0,1,0,0],[0,0,0,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,1,1,1,0]],
+    "J": [[0,0,0,1,0],[0,0,0,0,0],[0,0,0,1,0],[0,0,0,1,0],[0,0,0,1,0],[1,0,0,1,0],[0,1,1,0,0]],
+    "K": [[1,0,0,0,0],[1,0,0,1,0],[1,0,1,0,0],[1,1,0,0,0],[1,0,1,0,0],[1,0,0,1,0],[1,0,0,0,1]],
+    "L": [[0,1,0,0,0],[0,1,0,0,0],[0,1,0,0,0],[0,1,0,0,0],[0,1,0,0,0],[0,1,0,0,0],[0,1,1,1,1]],
+    "M": [[0,0,0,0,0],[0,0,0,0,0],[1,1,1,0,1],[1,0,1,1,1],[1,0,1,0,1],[1,0,1,0,1],[1,0,1,0,1]],
+    "N": [[0,0,0,0,0],[0,0,0,0,0],[1,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1]],
+    "O": [[0,0,0,0,0],[0,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[0,1,1,1,0]],
+    "P": [[0,0,0,0,0],[1,1,1,1,0],[1,0,0,0,1],[1,1,1,1,0],[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0]],
+    "Q": [[0,0,0,0,0],[0,1,1,1,1],[1,0,0,0,1],[0,1,1,1,1],[0,0,0,0,1],[0,0,0,0,1],[0,0,0,0,1]],
+    "R": [[0,0,0,0,0],[0,0,0,0,0],[1,0,1,1,0],[1,1,0,0,1],[1,0,0,0,0],[1,0,0,0,0],[1,0,0,0,0]],
+    "S": [[0,0,0,0,0],[0,1,1,1,1],[1,0,0,0,0],[0,1,1,1,0],[0,0,0,0,1],[1,0,0,0,1],[0,1,1,1,0]],
+    "T": [[0,0,1,0,0],[0,1,1,1,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,1],[0,0,0,1,1]],
+    "U": [[0,0,0,0,0],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,1,1],[0,1,1,1,1]],
+    "V": [[0,0,0,0,0],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[0,1,0,1,0],[0,1,0,1,0],[0,0,1,0,0]],
+    "W": [[0,0,0,0,0],[1,0,0,0,1],[1,0,0,0,1],[1,0,1,0,1],[1,0,1,0,1],[1,1,0,1,1],[1,0,0,0,1]],
+    "X": [[0,0,0,0,0],[1,0,0,0,1],[0,1,0,1,0],[0,0,1,0,0],[0,1,0,1,0],[1,0,0,0,1],[0,0,0,0,0]],
+    "Y": [[0,0,0,0,0],[1,0,0,0,1],[1,0,0,0,1],[0,1,0,1,0],[0,0,1,0,0],[0,1,0,0,0],[1,0,0,0,0]],
+    "Z": [[0,0,0,0,0],[1,1,1,1,1],[0,0,0,1,0],[0,0,1,0,0],[0,1,0,0,0],[1,1,1,1,1],[0,0,0,0,0]],
+    "0": [[0,1,1,1,0],[1,0,0,0,1],[1,0,1,0,1],[1,0,1,0,1],[1,0,1,0,1],[1,0,0,0,1],[0,1,1,1,0]],
+    "1": [[0,0,1,0,0],[0,1,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,1,1,1,0]],
+    "2": [[0,1,1,1,0],[1,0,0,0,1],[0,0,0,0,1],[0,0,1,1,0],[0,1,0,0,0],[1,0,0,0,0],[1,1,1,1,1]],
+    "3": [[1,1,1,1,0],[0,0,0,0,1],[0,0,0,0,1],[0,1,1,1,0],[0,0,0,0,1],[0,0,0,0,1],[1,1,1,1,0]],
+    "4": [[1, 0, 0, 0, 1],[1, 0, 0, 0, 1],[1, 0, 1, 0, 1],[1, 1, 1, 1, 1],[0, 0, 1, 0, 0],[0, 0, 1, 0, 0],[0, 0, 1, 0, 0]],
+    "5": [[1,1,1,1,1],[1,0,0,0,0],[1,1,1,1,0],[0,0,0,0,1],[0,0,0,0,1],[1,0,0,0,1],[0,1,1,1,0]],
+    "6": [[0,1,1,1,0],[1,0,0,0,0],[1,0,0,0,0],[1,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[0,1,1,1,0]],
+    "7": [[1,1,1,1,1],[0,0,0,0,1],[0,0,0,1,0],[0,0,1,0,0],[0,1,0,0,0],[0,1,0,0,0],[0,1,0,0,0]],
+    "8": [[0,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[0,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[0,1,1,1,0]],
+    "9": [[0,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[0,1,1,1,1],[0,0,0,0,1],[0,0,0,0,1],[0,1,1,1,0]],
+    " ": [[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]]
+  }
+};
+</script>
+
+<script>
+// State variables
+let activeFontKey = 'font5x7';
+let activeDisplayMode = 'ticker'; // 'ticker', 'static', 'empty'
+let activeColorTheme = 'green';
+let activeLetterToEdit = 'A';
+let scrollSpeedMs = 50;
+let isCircularLeds = true;
+let showLayoutGuides = false;
+let scrollIntervalId = null;
+let marqueeXOffset = 20; // Starts off screen to the right
+let ledElements = []; // Cached LED DOM elements
+let tickerCanvas = null; // Cached marquee ticker canvas
+
+// Load Font JSON Data
+let fontsData = EMBEDDED_FONTS;
+
+// Matrix Configuration Dimensions
+const MATRIX_COLS = 20;
+const MATRIX_ROWS = 24;
+
+// Physical matrix state represented as a 2D array
+let physicalGrid = Array(MATRIX_ROWS).fill(null).map(() => Array(MATRIX_COLS).fill(0));
+
+// Setup matrix helper configurations matching our info.md layout breakdown
+const FONT_METRIC_CONFIGS = {
+  'font3x5': {
+    width: 3,
+    height: 5,
+    padRight: 1,
+    padBottom: 1,
+    tileWidth: 4,  // character width + padding right
+    tileHeight: 6, // character height + padding bottom
+    colsFit: 5,
+    rowsFit: 4,
+    statTileSize: '4 × 6 px',
+    statMaxChars: '20 characters (5 wide × 4 high)'
+  },
+  'font5x7': {
+    width: 5,
+    height: 7,
+    padRight: 1,
+    padBottom: 1,
+    tileWidth: 6,
+    tileHeight: 8,
+    colsFit: 3,
+    rowsFit: 3,
+    statTileSize: '6 × 8 px',
+    statMaxChars: '9 characters (3 wide × 3 high)'
+  },
+  'font8x8': {
+    width: 8,
+    height: 8,
+    padRight: 0, // padding built into glyph design
+    padBottom: 0,
+    tileWidth: 8,
+    tileHeight: 8,
+    colsFit: 2,
+    rowsFit: 3,
+    statTileSize: '8 × 8 px',
+    statMaxChars: '6 characters (2 wide × 3 high)'
+  },
+  'fontplayful': {
+    width: 5,
+    height: 7,
+    padRight: 1,
+    padBottom: 1,
+    tileWidth: 6,
+    tileHeight: 8,
+    colsFit: 3,
+    rowsFit: 3,
+    statTileSize: '6 × 8 px',
+    statMaxChars: '9 characters (3 wide × 3 high)'
+  }
+};
+
+// DOM Elements
+const ledMatrixEl = document.getElementById('led-matrix-element');
+const gridLinesOverlayEl = document.getElementById('grid-lines-overlay');
+const textInputEl = document.getElementById('matrix-text-input');
+const speedSliderEl = document.getElementById('speed-slider');
+const speedLabelEl = document.getElementById('speed-label');
+const statTileSizeEl = document.getElementById('stat-tile-size');
+const statMaxCharsEl = document.getElementById('stat-max-chars');
+const jsonOutputArea = document.getElementById('json-output-area');
+const charGridBrowserEl = document.getElementById('char-grid-browser');
+const editorGridCanvasEl = document.getElementById('editor-grid-canvas');
+const editorGridDimsEl = document.getElementById('editor-grid-dimensions');
+const matrixStatusEl = document.getElementById('matrix-status');
+
+// Try loading full fonts.json from workspace
+fetch('fonts.json')
+  .then(response => {
+    if (!response.ok) throw new Error('Response error');
+    return response.json();
+  })
+  .then(data => {
+    fontsData = data;
+    matrixStatusEl.textContent = 'STATUS: ONLINE (LOADED FONTS.JSON)';
+    console.log('Successfully loaded fonts.json dynamically.');
+    initApp();
+  })
+  .catch(err => {
+    console.log('Using EMBEDDED_FONTS fallback due to local filesystem CORS constraints.', err);
+    matrixStatusEl.textContent = 'STATUS: LOCAL EMULATION';
+    initApp();
+  });
+
+function initApp() {
+  buildPhysicalLedGrid();
+  setupEventListeners();
+  updateFontConfigStats();
+  buildGlyphBrowserList();
+  selectLetterToEdit('A');
+  tickerCanvas = null;
+  refreshDisplayLoop();
+}
+
+// 1. Build DOM grids
+function buildPhysicalLedGrid() {
+  ledMatrixEl.innerHTML = '';
+  gridLinesOverlayEl.innerHTML = '';
+  ledElements = [];
+
+  for (let r = 0; r < MATRIX_ROWS; r++) {
+    const rowLeds = [];
+    for (let c = 0; c < MATRIX_COLS; c++) {
+      // Create physical LED element
+      const led = document.createElement('div');
+      led.classList.add('led');
+      if (isCircularLeds) led.classList.add('circle');
+      led.dataset.row = r;
+      led.dataset.col = c;
+      ledMatrixEl.appendChild(led);
+      rowLeds.push(led);
+
+      // Create visual layout overlay guides
+      const helper = document.createElement('div');
+      helper.classList.add('grid-cell-helper');
+      helper.dataset.row = r;
+      helper.dataset.col = c;
+      gridLinesOverlayEl.appendChild(helper);
+    }
+    ledElements.push(rowLeds);
+  }
+}
+
+// 2. Setup Events
+function setupEventListeners() {
+  // Input text change triggers immediate update
+  textInputEl.addEventListener('input', () => {
+    // Force uppercase since fonts data only has uppercase characters and digits
+    textInputEl.value = textInputEl.value.toUpperCase().replace(/[^A-Z0-9 ]/g, '');
+    tickerCanvas = null; // Invalidate cache
+    resetTickerPosition();
+    drawTextOnMatrix();
+  });
+
+  // Display Mode selector
+  document.querySelectorAll('input[name="display-mode"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      activeDisplayMode = e.target.value;
+      if (activeDisplayMode === 'ticker') {
+        document.getElementById('speed-control-group').style.opacity = '1';
+        resetTickerPosition();
+      } else {
+        document.getElementById('speed-control-group').style.opacity = '0.5';
+      }
+      drawTextOnMatrix();
+    });
+  });
+
+  // Font selector
+  document.querySelectorAll('input[name="font-style"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      activeFontKey = 'font' + e.target.value;
+      updateFontConfigStats();
+      buildGlyphBrowserList();
+      
+      // Select standard A to edit if active letter isn't loaded
+      selectLetterToEdit(activeLetterToEdit);
+      tickerCanvas = null; // Invalidate cache
+      resetTickerPosition();
+      drawTextOnMatrix();
+    });
+  });
+
+  // Guides toggle
+  document.getElementById('toggle-guides').addEventListener('change', (e) => {
+    showLayoutGuides = e.target.checked;
+    if (showLayoutGuides) {
+      document.body.classList.add('show-guides');
+    } else {
+      document.body.classList.remove('show-guides');
+    }
+    updateLayoutGuidesGrid();
+  });
+
+  // LED shape toggle
+  document.getElementById('toggle-shape').addEventListener('change', (e) => {
+    isCircularLeds = e.target.checked;
+    for (let r = 0; r < MATRIX_ROWS; r++) {
+      for (let c = 0; c < MATRIX_COLS; c++) {
+        const led = ledElements[r] ? ledElements[r][c] : null;
+        if (!led) continue;
+        if (isCircularLeds) {
+          led.classList.add('circle');
+        } else {
+          led.classList.remove('circle');
+        }
+      }
+    }
+  });
+
+  // Color Swatches
+  document.querySelectorAll('.color-swatch').forEach(swatch => {
+    swatch.addEventListener('click', (e) => {
+      document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+      swatch.classList.add('active');
+      activeColorTheme = swatch.dataset.color;
+      
+      // Update variables
+      let themeColor = 'var(--color-green)';
+      let themeGlow = 'var(--glow-green)';
+      if (activeColorTheme === 'amber') {
+        themeColor = 'var(--color-amber)';
+        themeGlow = 'var(--glow-amber)';
+      } else if (activeColorTheme === 'cyan') {
+        themeColor = 'var(--color-cyan)';
+        themeGlow = 'var(--glow-cyan)';
+      } else if (activeColorTheme === 'pink') {
+        themeColor = 'var(--color-pink)';
+        themeGlow = 'var(--glow-pink)';
+      }
+      
+      document.documentElement.style.setProperty('--primary', themeColor);
+      document.documentElement.style.setProperty('--primary-glow', themeGlow);
+      document.documentElement.style.setProperty('--primary-dim', themeColor.replace(')', ', 0.08)').replace('var(', 'rgba('));
+    });
+  });
+
+  // Speed slider
+  speedSliderEl.addEventListener('input', (e) => {
+    scrollSpeedMs = parseInt(e.target.value);
+    speedLabelEl.textContent = `Scrolling Speed: ${scrollSpeedMs}ms`;
+    refreshDisplayLoop();
+  });
+
+  // Copy JSON Buttons
+  document.getElementById('btn-copy-json').addEventListener('click', () => {
+    jsonOutputArea.select();
+    document.execCommand('copy');
+    alert('Active glyph matrix copied to clipboard!');
+  });
+
+  document.getElementById('btn-copy-full').addEventListener('click', () => {
+    const fullJson = JSON.stringify(fontsData, null, 2);
+    navigator.clipboard.writeText(fullJson).then(() => {
+      alert('Full fonts.json configuration copied to clipboard!');
+    });
+  });
+}
+
+function updateFontConfigStats() {
+  const conf = FONT_METRIC_CONFIGS[activeFontKey];
+  statTileSizeEl.textContent = conf.statTileSize;
+  statMaxCharsEl.textContent = conf.statMaxChars;
+  updateLayoutGuidesGrid();
+}
+
+// 3. Spacing Overlay & Guideline calculations
+function updateLayoutGuidesGrid() {
+  if (!showLayoutGuides) return;
+  const conf = FONT_METRIC_CONFIGS[activeFontKey];
+  const helpers = document.querySelectorAll('.grid-cell-helper');
+  
+  // Clear classes
+  helpers.forEach(h => {
+    h.className = 'grid-cell-helper';
+  });
+
+  if (activeDisplayMode === 'static') {
+    // Colorize each static character cell bounding box + padding + outer margins
+    const tileW = conf.tileWidth;
+    const tileH = conf.tileHeight;
+    const maxCols = conf.colsFit;
+    const maxRows = conf.rowsFit;
+
+    // Remaining margins (for math verification)
+    const totalContentWidth = tileW * maxCols;
+    const totalContentHeight = tileH * maxRows;
+
+    helpers.forEach(h => {
+      const r = parseInt(h.dataset.row);
+      const c = parseInt(h.dataset.col);
+
+      // Check if inside outer margins
+      if (c >= totalContentWidth || r >= totalContentHeight) {
+        h.classList.add('border-margin');
+        return;
+      }
+
+      // Identify tile column & row index
+      const tileColIdx = Math.floor(c / tileW);
+      const tileRowIdx = Math.floor(r / tileH);
+
+      // Relative coords inside this specific character tile
+      const relC = c % tileW;
+      const relR = r % tileH;
+
+      if (relC < conf.width && relR < conf.height) {
+        // Pure character box
+        h.classList.add('border-char');
+      } else if (relC === conf.width && relR < conf.height) {
+        // Right padding line
+        h.classList.add('border-pad-r');
+      } else if (relR === conf.height && relC < conf.width) {
+        // Bottom padding line
+        h.classList.add('border-pad-b');
+      } else {
+        // Corner padding intersection
+        h.classList.add('border-pad-r', 'border-pad-b');
+      }
+    });
+  }
+}
+
+// 4. Render text to LED Matrix
+function clearPhysicalGrid() {
+  physicalGrid = Array(MATRIX_ROWS).fill(null).map(() => Array(MATRIX_COLS).fill(0));
+}
+
+function updateLedDOM() {
+  for (let r = 0; r < MATRIX_ROWS; r++) {
+    for (let c = 0; c < MATRIX_COLS; c++) {
+      const led = ledElements[r] ? ledElements[r][c] : null;
+      if (!led) continue;
+      const isOn = physicalGrid[r][c] === 1;
+      if (isOn) {
+        if (!led.classList.contains('on')) led.classList.add('on');
+      } else {
+        if (led.classList.contains('on')) led.classList.remove('on');
+      }
+    }
+  }
+}
+
+function rebuildTickerCanvas() {
+  const text = textInputEl.value || "";
+  const font = fontsData[activeFontKey];
+  const conf = FONT_METRIC_CONFIGS[activeFontKey];
+  const fontHeight = conf.height;
+  const tileW = conf.tileWidth;
+
+  const canvasWidth = text.length * tileW;
+  tickerCanvas = Array(fontHeight).fill(null).map(() => Array(canvasWidth).fill(0));
+
+  for (let idx = 0; idx < text.length; idx++) {
+    const char = text[idx];
+    const matrix = font[char] || font[" "];
+    if (!matrix) continue;
+
+    const startCol = idx * tileW;
+    for (let r = 0; r < matrix.length; r++) {
+      for (let c = 0; c < matrix[r].length; c++) {
+        if (r < fontHeight && (startCol + c) < canvasWidth) {
+          tickerCanvas[r][startCol + c] = matrix[r][c];
+        }
+      }
+    }
+  }
+}
+
+function drawTextOnMatrix() {
+  clearPhysicalGrid();
+  
+  if (activeDisplayMode === 'empty') {
+    updateLedDOM();
+    return;
+  }
+
+  const text = textInputEl.value || "";
+  const font = fontsData[activeFontKey];
+  const conf = FONT_METRIC_CONFIGS[activeFontKey];
+
+  if (activeDisplayMode === 'static') {
+    // Render static letters wrapped matching info.md
+    const tileW = conf.tileWidth;
+    const tileH = conf.tileHeight;
+    const maxCols = conf.colsFit;
+    const maxRows = conf.rowsFit;
+    const maxChars = maxCols * maxRows;
+
+    const chars = text.substring(0, maxChars);
+    
+    for (let idx = 0; idx < chars.length; idx++) {
+      const char = chars[idx];
+      const matrix = font[char] || font[" "];
+      if (!matrix) continue;
+
+      // Determine static tile coordinates on screen
+      const tileCol = idx % maxCols;
+      const tileRow = Math.floor(idx / maxCols);
+      
+      const startCol = tileCol * tileW;
+      const startRow = tileRow * tileH;
+
+      // Draw character matrix onto physical grid
+      for (let r = 0; r < matrix.length; r++) {
+        for (let c = 0; c < matrix[r].length; c++) {
+          const targetR = startRow + r;
+          const targetC = startCol + c;
+          if (targetR < MATRIX_ROWS && targetC < MATRIX_COLS) {
+            physicalGrid[targetR][targetC] = matrix[r][c];
+          }
+        }
+      }
+    }
+  } else if (activeDisplayMode === 'ticker') {
+    if (!tickerCanvas) {
+      rebuildTickerCanvas();
+    }
+    
+    const fontHeight = conf.height;
+    const startRow = Math.floor((MATRIX_ROWS - fontHeight) / 2);
+    const canvasWidth = tickerCanvas[0] ? tickerCanvas[0].length : 0;
+
+    for (let r = 0; r < fontHeight; r++) {
+      const targetR = startRow + r;
+      if (targetR < 0 || targetR >= MATRIX_ROWS) continue;
+
+      for (let c = 0; c < MATRIX_COLS; c++) {
+        // Map screen column index back to scrolling virtual grid coordinate
+        const virtualColIdx = c - marqueeXOffset;
+        if (virtualColIdx >= 0 && virtualColIdx < canvasWidth) {
+          physicalGrid[targetR][c] = tickerCanvas[r][virtualColIdx];
+        }
+      }
+    }
+  }
+
+  updateLedDOM();
+}
+
+function resetTickerPosition() {
+  marqueeXOffset = MATRIX_COLS;
+}
+
+function refreshDisplayLoop() {
+  if (scrollIntervalId) {
+    clearInterval(scrollIntervalId);
+  }
+
+  scrollIntervalId = setInterval(() => {
+    if (activeDisplayMode === 'ticker') {
+      if (!tickerCanvas) {
+        rebuildTickerCanvas();
+      }
+      const canvasWidth = tickerCanvas[0] ? tickerCanvas[0].length : 0;
+
+      marqueeXOffset--;
+      // Reset if scrolled off left boundary
+      if (marqueeXOffset < -canvasWidth) {
+        resetTickerPosition();
+      }
+      drawTextOnMatrix();
+    }
+  }, scrollSpeedMs);
+}
+
+
+// 5. Glyph Browser and Drawing Editor
+function buildGlyphBrowserList() {
+  charGridBrowserEl.innerHTML = '';
+  
+  // Populate with uppercase English alphabet and numbers
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ".split("");
+  
+  alphabet.forEach(letter => {
+    const btn = document.createElement('button');
+    btn.classList.add('char-btn');
+    btn.textContent = letter === " " ? "SPACE" : letter;
+    btn.dataset.letter = letter;
+    if (letter === activeLetterToEdit) btn.classList.add('active');
+    
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.char-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectLetterToEdit(letter);
+    });
+
+    charGridBrowserEl.appendChild(btn);
+  });
+}
+
+function selectLetterToEdit(letter) {
+  activeLetterToEdit = letter;
+  const font = fontsData[activeFontKey];
+  const conf = FONT_METRIC_CONFIGS[activeFontKey];
+
+  // If character matrix is missing, create blank grid
+  if (!font[letter]) {
+    font[letter] = Array(conf.height).fill(null).map(() => Array(conf.width).fill(0));
+  }
+
+  const matrix = font[letter];
+  editorGridDimsEl.textContent = `Size: ${conf.width} × ${conf.height} pixels`;
+
+  // Draw drawing canvas
+  editorGridCanvasEl.innerHTML = '';
+  editorGridCanvasEl.style.gridTemplateColumns = `repeat(${conf.width}, 28px)`;
+  editorGridCanvasEl.style.gridTemplateRows = `repeat(${conf.height}, 28px)`;
+
+  for (let r = 0; r < conf.height; r++) {
+    for (let c = 0; c < conf.width; c++) {
+      const pixel = document.createElement('div');
+      pixel.classList.add('editor-pixel');
+      pixel.dataset.row = r;
+      pixel.dataset.col = c;
+      if (matrix[r] && matrix[r][c] === 1) {
+        pixel.classList.add('on');
+      }
+
+      // Drawing action on click / toggle
+      pixel.addEventListener('click', () => {
+        const isCurrentlyOn = pixel.classList.contains('on');
+        if (isCurrentlyOn) {
+          pixel.classList.remove('on');
+          matrix[r][c] = 0;
+        } else {
+          pixel.classList.add('on');
+          matrix[r][c] = 1;
+        }
+        
+        tickerCanvas = null; // Invalidate cache
+        // Refresh display and output
+        drawTextOnMatrix();
+        updateEditorJsonOutput();
+      });
+
+      editorGridCanvasEl.appendChild(pixel);
+    }
+  }
+
+  updateEditorJsonOutput();
+}
+
+function updateEditorJsonOutput() {
+  const font = fontsData[activeFontKey];
+  const matrix = font[activeLetterToEdit];
+  
+  // Format matrix clearly as array code block
+  let jsonString = `// Character: "${activeLetterToEdit}" (${activeFontKey})\n`;
+  jsonString += `"${activeLetterToEdit}": [\n`;
+  for (let r = 0; r < matrix.length; r++) {
+    jsonString += `  [${matrix[r].join(', ')}]${r < matrix.length - 1 ? ',' : ''}\n`;
+  }
+  jsonString += `]`;
+
+  jsonOutputArea.value = jsonString;
+}
+
+</script>
+</body>
+</html>
